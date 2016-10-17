@@ -150,6 +150,7 @@ abstract class AIMAbstractRequest extends AbstractRequest
     {
         $headers = array('Content-Type' => 'text/xml; charset=utf-8');
         $data = $data->saveXml();
+
         $httpResponse = $this->httpClient->post($this->getEndpoint(), $headers, $data)->send();
 
         return $this->response = new AIMResponse($this, $httpResponse->getBody());
@@ -171,8 +172,9 @@ abstract class AIMAbstractRequest extends AbstractRequest
 
     protected function addAuthentication(\SimpleXMLElement $data)
     {
-        $data->merchantAuthentication->name = $this->getApiLoginId();
-        $data->merchantAuthentication->transactionKey = $this->getTransactionKey();
+      $node = $data->addChild("merchantAuthentication");
+      $node->name = $this->getApiLoginId();
+      $node->transactionKey = $this->getTransactionKey();
     }
 
     protected function addReferenceId(\SimpleXMLElement $data)
@@ -189,6 +191,7 @@ abstract class AIMAbstractRequest extends AbstractRequest
             // The extending class probably hasn't specified an "action"
             throw new InvalidRequestException();
         }
+        $data->addChild("transactionRequest");
         $data->transactionRequest->transactionType = $this->action;
     }
 
@@ -207,11 +210,13 @@ abstract class AIMAbstractRequest extends AbstractRequest
         // Merchant assigned customer ID
         $customer = $this->getCustomerId();
         if (!empty($customer)) {
+            $req->addChild("customer");
             $req->customer->id = $customer;
         }
 
         /** @var CreditCard $card */
         if ($card = $this->getCard()) {
+            $req->addChild("billTo");
             // A card is present, so include billing and shipping details
             $req->billTo->firstName = $card->getBillingFirstName();
             $req->billTo->lastName = $card->getBillingLastName();
@@ -221,8 +226,8 @@ abstract class AIMAbstractRequest extends AbstractRequest
             $req->billTo->state = $card->getBillingState();
             $req->billTo->zip = $card->getBillingPostcode();
             $req->billTo->country = $card->getBillingCountry();
-            $req->billTo->phoneNumber = $card->getBillingPhone();
 
+            $req->addChild("shipTo");
             $req->shipTo->firstName = $card->getShippingFirstName();
             $req->shipTo->lastName = $card->getShippingLastName();
             $req->shipTo->company = $card->getShippingCompany();
@@ -240,17 +245,20 @@ abstract class AIMAbstractRequest extends AbstractRequest
     {
         $i = 0;
 
+        $data->transactionRequest->addChild("transactionSettings");
         // The test mode setting indicates whether or not this is a live request or a test request
-        $data->transactionRequest->transactionSettings->setting[$i]->settingName = 'testRequest';
-        $data->transactionRequest->transactionSettings->setting[$i]->settingValue = $this->getTestMode()
+        $setting = $data->transactionRequest->transactionSettings->addChild("setting");
+        $setting->settingName = 'testRequest';
+        $setting->settingValue = $this->getTestMode()
             ? 'true'
             : 'false';
 
         // The duplicate window setting specifies the threshold for AuthorizeNet's duplicate transaction detection logic
         if (!is_null($this->getDuplicateWindow())) {
             $i++;
-            $data->transactionRequest->transactionSettings->setting[$i]->settingName = 'duplicateWindow';
-            $data->transactionRequest->transactionSettings->setting[$i]->settingValue = $this->getDuplicateWindow();
+            $setting = $data->transactionRequest->transactionSettings->addChild("setting");
+            $setting->settingName = 'duplicateWindow';
+            $setting->settingValue = $this->getDuplicateWindow();
         }
 
         return $data;

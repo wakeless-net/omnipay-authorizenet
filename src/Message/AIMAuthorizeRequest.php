@@ -30,6 +30,8 @@ class AIMAuthorizeRequest extends AIMAbstractRequest
         /** @var CreditCard $card */
         $card = $this->getCard();
         $card->validate();
+        $data->transactionRequest->addChild("payment");
+        $data->transactionRequest->payment->addChild("creditCard");
         $data->transactionRequest->payment->creditCard->cardNumber = $card->getNumber();
         $data->transactionRequest->payment->creditCard->expirationDate = $card->getExpiryDate('my');
         $data->transactionRequest->payment->creditCard->cardCode = $card->getCvv();
